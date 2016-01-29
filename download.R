@@ -1,5 +1,4 @@
 library(googlesheets)
-library(magrittr)
 
 gs <- gs_url("https://docs.google.com/spreadsheets/d/143lcf3bei1cINsREiDTBQl9xjrZubVRBMRJvraybLr0/edit#gid=0")
 path_out <- "brawl_ranks.csv"
