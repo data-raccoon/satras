@@ -1,5 +1,4 @@
 library(googlesheets)
-library(magrittr)
 library(data.table)
 
 path_in <- "brawl_trueskill.csv"
