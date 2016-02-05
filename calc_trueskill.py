@@ -11,7 +11,7 @@ import pandas as pd
 
 
 import trueskill
-trueskill = trueskill.TrueSkill(backend = "scipy", draw_probability = 0.0)
+trueskill = trueskill.TrueSkill(backend = "scipy", draw_probability = 0.01)
 
 
 # settings
