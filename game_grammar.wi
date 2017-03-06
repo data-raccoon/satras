@@ -1,6 +1,6 @@
 game: _winorder ;
 
-_winorder: leftwins | draw | _team;
+_winorder: leftwins | draw | _team ;
 leftwins: _team '>' _winorder ;
 draw: _team '=' _winorder ;
 
