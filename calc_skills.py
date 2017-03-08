@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Created 2017-02-10
@@ -17,9 +18,9 @@ from wisentparser import Parser
 
 # settings --------------------------------------------------------------------
 trueskill = trueskill.TrueSkill(backend = "scipy", draw_probability = 0.10)
-path_games  = 'mtg_games.txt'
-path_scores = "mtg_scores.csv"
-path_table  = "mtg_scores.txt"
+path_games  = 'game_scores.txt'
+path_scores = "player_data.csv"
+path_table  = "player_scores.txt"
 
 # parse input to teams and ranks using wisent ---------------------------------
 def print_tree(tree, terminals, indent=0):
@@ -43,7 +44,7 @@ def tokenize(str):
 
         m = match('[A-Za-z0-9]+', str)
         if m:
-            res.append(('SYMBOL', m.group(0)))
+            res.append(('PLAYER', m.group(0)))
             str = str[m.end(0):]
             continue
 
@@ -78,8 +79,8 @@ def eval_tree(tree):
         res_teams = [left["teams"][0] + right["teams"][0]]
         res_ranks = left["ranks"]
         return {"teams": res_teams, "ranks": res_ranks}
-    elif tree[0] == 'player':
-        return {"teams": [[tree[1][1]]], "ranks": [1]}
+    elif tree[0] == 'PLAYER':
+        return {"teams": [[tree[1]]], "ranks": [1]}
 
 
 def parse_game(game_line):
