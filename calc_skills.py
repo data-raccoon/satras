@@ -56,6 +56,7 @@ def tokenize(str):
 def eval_tree(tree):
     if tree[0] == 'game':
         return eval_tree(tree[1]) 
+
     elif tree[0] == 'leftwins':
         left = eval_tree(tree[1])
         right = eval_tree(tree[3])
@@ -63,6 +64,7 @@ def eval_tree(tree):
         res_ranks = left["ranks"] + [
             rank + max(left["ranks"]) for rank in right["ranks"]]
         return {"teams": res_teams, "ranks": res_ranks}
+
     elif tree[0] == 'draw':
         left = eval_tree(tree[1])
         right = eval_tree(tree[3])
@@ -70,8 +72,10 @@ def eval_tree(tree):
         res_ranks = left["ranks"] + [
             rank + max(left["ranks"]) - 1 for rank in right["ranks"]]
         return {"teams": res_teams, "ranks": res_ranks}
+
     elif tree[0] == 'brackets':
         return eval_tree(tree[2])
+
     elif tree[0] == 'player_in_team':
         left = eval_tree(tree[1])
         right = eval_tree(tree[3])
@@ -79,6 +83,7 @@ def eval_tree(tree):
         res_teams = [left["teams"][0] + right["teams"][0]]
         res_ranks = left["ranks"]
         return {"teams": res_teams, "ranks": res_ranks}
+
     elif tree[0] == 'PLAYER':
         return {"teams": [[tree[1]]], "ranks": [1]}
 
@@ -95,12 +100,14 @@ if __name__ == '__main__':
         lines = fobj.readlines()
     lines = [line for line in lines if (line != '\n' and line[0] != "#")]
     games = [parse_game(line) for line in lines]
+
+    # TODO: keep history of player development 
     
     players = defaultdict(trueskill.Rating)
     for game in games:
         players_flat = [name for team in game["teams"] for name in team]    
 
-        # exchange string names to players
+        # exchange strings with names to corresponding player objects
         for team in game["teams"]:
             for idn, name in enumerate(team):
                 team[idn] = players[name]
