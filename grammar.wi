@@ -4,7 +4,5 @@ _winorder: leftwins | draw | _team ;
 leftwins: _team '>' _winorder ;
 draw: _team '=' _winorder ;
 
-_team: brackets | PLAYER ;
-brackets: '(' _multiple ')' ;
-_multiple: PLAYER | player_in_team ;
-player_in_team: PLAYER ',' _multiple ;
+_team: PLAYER | player_in_team ;
+player_in_team: PLAYER ',' _team ;

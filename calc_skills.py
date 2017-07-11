@@ -55,7 +55,7 @@ def tokenize(str):
 
 def eval_tree(tree):
     if tree[0] == 'game':
-        return eval_tree(tree[1]) 
+        return eval_tree(tree[1])
 
     elif tree[0] == 'leftwins':
         left = eval_tree(tree[1])
@@ -93,7 +93,7 @@ def parse_game(game_line):
     tokens = tokenize(game_line)
     tree = p.parse(tokens)
     return eval_tree(tree)
-    
+
 
 if __name__ == '__main__':
     with open(path_games, 'r') as fobj:
@@ -101,18 +101,18 @@ if __name__ == '__main__':
     lines = [line for line in lines if (line != '\n' and line[0] != "#")]
     games = [parse_game(line) for line in lines]
 
-    # TODO: keep history of player development 
-    
+    # TODO: keep history of player development
+
     players = defaultdict(trueskill.Rating)
     for game in games:
-        players_flat = [name for team in game["teams"] for name in team]    
+        players_flat = [name for team in game["teams"] for name in team]
 
         # exchange strings with names to corresponding player objects
         for team in game["teams"]:
             for idn, name in enumerate(team):
                 team[idn] = players[name]
 
-        # calc new skills  
+        # calc new skills
         result = trueskill.rate(game["teams"], ranks = game["ranks"])
         result_flat = [player for team in result for player in team]
 
@@ -121,17 +121,17 @@ if __name__ == '__main__':
             players[players_flat[idx]] = result_flat[idx]
 
     # output ------------------------------------------------------------------
-    player_dicts = [{"Name": player, 
-                     "mu": players[player].mu, 
-                     "sigma": players[player].sigma} 
+    player_dicts = [{"Name": player,
+                     "mu": players[player].mu,
+                     "sigma": players[player].sigma}
                     for player in players]
     player_df = pd.DataFrame(player_dicts)
 
     # add conservative skill estimation, 99% confidence
     player_df["TrueSkill"] = (
         player_df["mu"] - 2.575829303549 * player_df["sigma"])
-    player_df.sort("TrueSkill", ascending = False, inplace = True)
-    
-    player_df.to_csv(path_scores, index = False)  
+    player_df.sort_values("TrueSkill", ascending = False, inplace = True)
+
+    player_df.to_csv(path_scores, index = False)
     os.system("cat " + path_scores + " | column -s, -t > " + path_table)
 
