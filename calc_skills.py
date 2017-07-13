@@ -7,10 +7,14 @@ Created 2017-02-10
 """
 
 import os
+import re
 from collections import defaultdict
 
 import pandas as pd
+import dash_core_components as dcc
+import dash_html_components as dhtml
 
+import dash
 import trueskill
 
 from wisentparser import Parser
@@ -33,28 +37,23 @@ def print_tree(tree, terminals, indent=0):
         for x in tree[1:]:
             print_tree(x, terminals, indent+1)
 
-def tokenize(game_line):
-    from re import match
-
-    # Remove all whitespace, they're all cosmetic
-    game_line = game_line.replace(" ", "")
-    game_line = game_line.replace("\n", "")
-
-    res = []
-    while game_line:
+def tokenize(line):
+    result = []
+    # tokenize elements one by one
+    while line:
         # Match regular expression for free form tokens (PLAYER)
-        m = match('[A-Za-z0-9]+', game_line)
-        if m:
-            res.append(('PLAYER', m.group(0)))
-            game_line = game_line[m.end(0):]
+        matches = re.match('[^>=,]+', line)
+        if matches:
+            result.append(('PLAYER', matches.group(0).strip()))
+            line = line[matches.end(0):]
             continue
 
-        # Keep 1-char tokens ">", "=" and ","
+        # Keep 1-char tokens ">", "=", "," and ":"
         # parsing will fail later if there are other 1-char tokens
-        res.append((game_line[0],))
-        game_line = game_line[1:]
+        result.append((line[0],))
+        line = line[1:]
 
-    return res
+    return result
 
 def eval_tree(tree):
     if tree[0] == 'game':
@@ -86,23 +85,78 @@ def eval_tree(tree):
 
     elif tree[0] == 'PLAYER':
         return {"teams": [[tree[1]]], "ranks": [1]}
+    
 
+def parse_game_tree(game_tree):
+    return eval_tree(game_tree)
 
-def parse_game(game_line):
+def game_line2game_tree(game_line):
     p = Parser()
     tokens = tokenize(game_line)
-    tree = p.parse(tokens)
-    return eval_tree(tree)
+    return p.parse(tokens)
+    
+def remove_unused(lines):
+    # comments and empty lines don't need parsing
+    return [line.strip() for line in lines if (line != '\n' and line[0] != "#")]
+    
+def structure_games(lines):
+    match_groups = [defaultdict(list)]
+    lastwasgame = False
+    for line in lines:
+        keyvalue = line.split(":")
+        if len(keyvalue) == 2:
+            if lastwasgame: # here starts the metadata new group of matches
+                match_groups.append(defaultdict(list))
+            match_groups[len(match_groups) - 1][keyvalue[0].strip()] = (
+                    keyvalue[1].strip())
+            lastwasgame = False
+        else: # not a key value pair but a game
+            game_tree = game_line2game_tree(line)
+            match_groups[len(match_groups) - 1]["_games"].append(game_tree)
+            lastwasgame = True
+    return match_groups
+
+def flatten_structure(match_groups):
+    match_groups = pd.DataFrame(match_groups)
+    games_df = match_groups.apply(
+            lambda x: pd.Series(x['_games']),
+            axis=1).stack().reset_index(level=1, drop=True)
+    games_df.name = "_games"
+    games_df = match_groups.drop('_games', axis=1).join(games_df)
+    return games_df    
+
+
+app = dash.Dash()
+
+#app.layout = TODO
+
+# tab: player comparison, final
+# tab: player comparison, development
+# control: choose game (mendatory)
+# control: choose date
+# control: choose custom variable content
+# vis: colorize influencing factors
+
 
 
 if __name__ == '__main__':
     with open(path_games, 'r') as fobj:
         lines = fobj.readlines()
-    lines = [line for line in lines if (line != '\n' and line[0] != "#")]
-    games = [parse_game(line) for line in lines]
+    lines = remove_unused(lines)
+    match_groups = structure_games(lines)
+    games_df = flatten_structure(match_groups)
+    
+    # TODO parse games after user we know what to show (UI)
+    app.run_server(debug=True)    
+
+
+
+    # old stuff --------------------------------------------------------------
+
+    # TODO parse from new data structure
+    games = [parse_game_line(game_line) for game_line in lines]
 
     # TODO: keep history of player development
-    # TODO: add date - invent proper data format for meta data!
 
     players = defaultdict(trueskill.Rating)
     players_history = []
