@@ -24,7 +24,7 @@ path_table  = "player_scores.txt"
 
 # parse input to teams and ranks using wisent ---------------------------------
 def print_tree(tree, terminals, indent=0):
-    """Print a parse tree to stdout."""
+    """Print a parse tree to stdout, for debugging purposes only."""
     prefix = "    "*indent
     if tree[0] in terminals:
         print prefix + repr(tree)
@@ -33,23 +33,26 @@ def print_tree(tree, terminals, indent=0):
         for x in tree[1:]:
             print_tree(x, terminals, indent+1)
 
-def tokenize(str):
+def tokenize(game_line):
     from re import match
 
-    res = []
-    while str:
-        if str[0].isspace():
-            str = str[1:]
-            continue
+    # Remove all whitespace, they're all cosmetic
+    game_line = game_line.replace(" ", "")
+    game_line = game_line.replace("\n", "")
 
-        m = match('[A-Za-z0-9]+', str)
+    res = []
+    while game_line:
+        # Match regular expression for free form tokens (PLAYER)
+        m = match('[A-Za-z0-9]+', game_line)
         if m:
             res.append(('PLAYER', m.group(0)))
-            str = str[m.end(0):]
+            game_line = game_line[m.end(0):]
             continue
 
-        res.append((str[0],))
-        str = str[1:]
+        # Keep 1-char tokens ">", "=" and ","
+        # parsing will fail later if there are other 1-char tokens
+        res.append((game_line[0],))
+        game_line = game_line[1:]
 
     return res
 
@@ -72,9 +75,6 @@ def eval_tree(tree):
         res_ranks = left["ranks"] + [
             rank + max(left["ranks"]) - 1 for rank in right["ranks"]]
         return {"teams": res_teams, "ranks": res_ranks}
-
-    elif tree[0] == 'brackets':
-        return eval_tree(tree[2])
 
     elif tree[0] == 'player_in_team':
         left = eval_tree(tree[1])
@@ -102,8 +102,10 @@ if __name__ == '__main__':
     games = [parse_game(line) for line in lines]
 
     # TODO: keep history of player development
+    # TODO: add date - invent proper data format for meta data!
 
     players = defaultdict(trueskill.Rating)
+    players_history = []
     for game in games:
         players_flat = [name for team in game["teams"] for name in team]
 
@@ -119,6 +121,7 @@ if __name__ == '__main__':
         # update players with new skill
         for idx in range(len(result_flat)):
             players[players_flat[idx]] = result_flat[idx]
+            players_history.append((players_flat[idx], result_flat[idx]))
 
     # output ------------------------------------------------------------------
     player_dicts = [{"Name": player,
