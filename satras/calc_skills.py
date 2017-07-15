@@ -86,10 +86,6 @@ def eval_tree(tree):
     elif tree[0] == 'PLAYER':
         return {"teams": [[tree[1]]], "ranks": [1]}
     
-
-def parse_game_tree(game_tree):
-    return eval_tree(game_tree)
-
 def game_line2game_tree(game_line):
     p = Parser()
     tokens = tokenize(game_line)
@@ -139,7 +135,7 @@ app = dash.Dash()
 
 
 
-if __name__ == '__main__':
+def main():
     with open(path_games, 'r') as fobj:
         lines = fobj.readlines()
     lines = remove_unused(lines)
@@ -191,4 +187,7 @@ if __name__ == '__main__':
 
     player_df.to_csv(path_scores, index = False)
     os.system("cat " + path_scores + " | column -s, -t > " + path_table)
+
+if __name__ == '__main__':
+    main()
 
