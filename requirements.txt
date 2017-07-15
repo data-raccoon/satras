@@ -1,0 +1,7 @@
+pandas >= 0.20.3 == 0.*
+trueskill >= 0.4.4 == 0.*
+plotly >= 2.0.12 == 2.*
+dash >= 0.17.7 == 0.*
+dash-core-components >= 0.5.3 == 0.*
+dash-htlm-components >= 0.6.2 == 0.*
+dash-renderer >= 0.7.3 == 0.*
