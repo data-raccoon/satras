@@ -22,9 +22,9 @@ from wisentparser import Parser
 
 # settings --------------------------------------------------------------------
 trueskill = trueskill.TrueSkill(backend = "scipy", draw_probability = 0.10)
-path_games  = 'game_scores.txt'
-path_scores = "player_data.csv"
-path_table  = "player_scores.txt"
+path_games  = 'data/game_scores.txt'
+path_scores = 'data/player_data.csv'
+path_table  = 'data/player_scores.txt'
 
 # parse input to teams and ranks using wisent ---------------------------------
 def print_tree(tree, terminals, indent=0):
@@ -122,15 +122,29 @@ def flatten_structure(match_groups):
     return games_df    
 
 
-app = dash.Dash()
+def create_app(games, dates, metadata):
+    app = dash.Dash()
 
-#app.layout = TODO
+    app.layout = dhtml.Div([
+        dhtml.Div([
+            dhtml.Div([    
+                dcc.Dropdown(
+                    id='game_choice',
+                    options=[{'label': i, 'value': i} for i in games],
+                    value='Choose game'),
+            ], style={'width': '49%', 'display': 'inline-block'}),
+            dhtml.Div([    
+                dcc.RangeSlider(
+                    marks={i: 'Label {}'.format(i) for i in range(-5, 7)},
+                    min=-5,
+                    max=6,
+                    value=[-3, 4]),       
+            ], style={'width': '49%', 'float': 'right', 'display': 'inline-block'}),
+        ]),
+    ])
 
-# tab: player comparison, final
-# tab: player comparison, development
-# control: choose game (mendatory)
-# control: choose date
-# control: choose custom variable content
+    return app
+
 # vis: colorize influencing factors
 
 
@@ -141,13 +155,22 @@ def main():
     lines = remove_unused(lines)
     match_groups = structure_games(lines)
     games_df = flatten_structure(match_groups)
+    options_game = games_df.game.unique()
+    options_date = games_df.date.unique()
+    other_metadata = {}
     
-    # TODO parse games after user we know what to show (UI)
-    app.run_server(debug=True)    
+    app = create_app(options_game, options_date, other_metadata)    
+    
+    # eval games after we know what to show (user input required)
+    app.run_server(port=8089, debug=True)    
 
 
 
-    # old stuff --------------------------------------------------------------
+ 
+    
+    
+    
+def old_stuff():
 
     # TODO parse from new data structure
     games = [parse_game_line(game_line) for game_line in lines]
@@ -188,6 +211,7 @@ def main():
     player_df.to_csv(path_scores, index = False)
     os.system("cat " + path_scores + " | column -s, -t > " + path_table)
 
+
+
 if __name__ == '__main__':
     main()
-

@@ -1,14 +1,15 @@
 # some metadata precedes the games
 # 1 vs 1
 date: 2017-01-01
-game: my duel game
+game: my boardgame
 Foo > Bar
 Bar > Foo
 Bar = Foo
 
-# Free for all
+# multiple players
 date: 2017-02-02
 game: my cardgame
+game-mode: ffa
 Foo > Bar > Batz
 Foo > Bar = Batz
 Foo = Bar > Batz
@@ -16,18 +17,20 @@ Foo = Bar = Batz
 
 # Teams
 date: 2017-03-03
-game: my multiplayer game
+game: my boardgame
+game-mode: ctf
 Foo, Bar > Batz, Foobar
 Foo > Bar, Batz
 
 # write down influencing factors
 date: 2017-04-04
-game: my multiplayer game
+game: my cardgame
+my metadata: with handicaps
 Foo > Bar, light handicap = Batz, strong handicap > Foobar
 
 # use custom metadata
 date: 2017-05-05
-game: my duel game
+game: my other game
 my metadata: playing just for fun
 Foo = Bar
 Foo > Bar

@@ -3,6 +3,11 @@ import pytest
 import satras.calc_skills as sc
 
 
+def test_remove_unused():
+    assert False
+    # should no longer contain comments
+
+
 def test_eval_tree():
     assert False
 
@@ -46,8 +51,8 @@ def test_game_line2game_tree():
 
 def test_structure_games():
     assert False
-
+    # associate metadata with games
 
 def test_flatten_structure():
     assert False
-
+    # creates a proper pandas DataFrame for easy grouping
