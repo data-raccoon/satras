@@ -10,11 +10,12 @@ import os
 import re
 from collections import defaultdict
 
-import pandas as pd
-import dash_core_components as dcc
-import dash_html_components as dhtml
-
 import dash
+import dash_core_components as dcc
+import dash_html_components as html
+import plotly.graph_objs as go
+import pandas as pd
+
 import trueskill
 
 from gameparser import Parser
@@ -85,16 +86,22 @@ def eval_tree(tree):
 
     elif tree[0] == 'PLAYER':
         return {"teams": [[tree[1]]], "ranks": [1]}
-    
+
 def game_line2game_tree(game_line):
     p = Parser()
     tokens = tokenize(game_line)
     return p.parse(tokens)
-    
-def remove_unused(lines):
+
+def prepare_lines(lines):
     # comments and empty lines don't need parsing
-    return [line.strip() for line in lines if (line != '\n' and line[0] != "#")]
-    
+    # remove unused whitespace
+    keep = []
+    for line in lines:
+        line = line.strip()
+        if len(line) > 0 and line[0] != "#":
+            keep.append(line)
+    return keep
+
 def structure_games(lines):
     match_groups = [defaultdict(list)]
     lastwasgame = False
@@ -119,57 +126,83 @@ def flatten_structure(match_groups):
             axis=1).stack().reset_index(level=1, drop=True)
     games_df.name = "_games"
     games_df = match_groups.drop('_games', axis=1).join(games_df)
-    return games_df    
+    return games_df
 
 
-def create_app(games, dates, metadata):
+def create_app(df_final, games, dates, metadata):
     app = dash.Dash()
 
     app.layout = dhtml.Div([
         dhtml.Div([
-            dhtml.Div([    
+            html.Div([
                 dcc.Dropdown(
                     id='game_choice',
                     options=[{'label': i, 'value': i} for i in games],
                     value='Choose game'),
             ], style={'width': '49%', 'display': 'inline-block'}),
-            dhtml.Div([    
-                dcc.RangeSlider(
-                    marks={i: 'Label {}'.format(i) for i in range(-5, 7)},
-                    min=-5,
-                    max=6,
-                    value=[-3, 4]),       
-            ], style={'width': '49%', 'float': 'right', 'display': 'inline-block'}),
+            #html.Div([
+            #    dcc.RangeSlider(
+            #        marks={i: 'Label {}'.format(i) for i in range(-5, 7)},
+            #        min=-5,
+            #        max=6,
+            #        value=[-3, 4]),
+            #], style={'width': '49%', 'float': 'right', 'display': 'inline-block'}),
         ]),
+        dcc.Graph(id='final_bars'),
     ])
 
     return app
 
+#@app.callback(
+#    dash.dependencies.Output('final_bars', 'figure'),
+#    [dash.dependencies.Input('game_choice', 'value')])
+def update_final_bars(game_choice):
+    return {
+        'data': data_df,
+        'layout': go.Layout(
+            xaxis={'type': 'log', 'title': 'GDP Per Capita'},
+            yaxis={'title': 'Life Expectancy', 'range': [20, 90]},
+            margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
+            legend={'x': 0, 'y': 1},
+            hovermode='closest'
+        )
+    }
+
 # vis: colorize influencing factors
 
+def generate_table(dataframe, max_rows=10):
+    return html.Table(
+        # Header
+        [html.Tr([html.Th(col) for col in dataframe.columns])] +
+
+        # Body
+        [html.Tr([
+            html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
+        ]) for i in range(min(len(dataframe), max_rows))]
+    )
 
 
 def main():
     with open(path_games, 'r') as fobj:
         lines = fobj.readlines()
-    lines = remove_unused(lines)
+    lines = prepare_lines(lines)
     match_groups = structure_games(lines)
     games_df = flatten_structure(match_groups)
+
     options_game = games_df.game.unique()
     options_date = games_df.date.unique()
-    other_metadata = {}
-    
-    app = create_app(options_game, options_date, other_metadata)    
-    
+    other_metadata = {} # TODO
+    app = create_app(options_game, options_date, other_metadata)
+
     # eval games after we know what to show (user input required)
-    app.run_server(port=8089, debug=True)    
+    app.run_server(port=8089, debug=True)
 
 
 
- 
-    
-    
-    
+
+
+
+
 def old_stuff():
 
     # TODO parse from new data structure
