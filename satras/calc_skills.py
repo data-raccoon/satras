@@ -17,7 +17,7 @@ import dash_html_components as dhtml
 import dash
 import trueskill
 
-from wisentparser import Parser
+from gameparser import Parser
 
 
 # settings --------------------------------------------------------------------
