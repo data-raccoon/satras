@@ -1,250 +1,132 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Created 2017-02-10
-
 @author: sporz
 """
 
-import os
 import re
 from collections import defaultdict
+from csv import QUOTE_ALL
+from itertools import chain
 
-import dash
-import dash_core_components as dcc
-import dash_html_components as html
-import plotly.graph_objs as go
+import yaml
+import numpy as np
 import pandas as pd
 
 import trueskill
 
-from gameparser import Parser
+"""
+output: csv files for use in superset
+
+separate by game-name, separate significantly different game modes
+
+assume time if not given, split day (10 to 22) evenly accross games if multiple
+
+for high level stats, for development of player scores
+game_stats.csv
+datetime, game-name, player, score, score_min, score_max, rank, has_won (rank == 1 & rank < max(rank)), has_lost (rank > 1)
+
+carry over annotations to visualization
+annotations.csv
+datetime, game-name, annotation
+
+"""
 
 
 # settings --------------------------------------------------------------------
 trueskill = trueskill.TrueSkill(backend = "scipy", draw_probability = 0.10)
-path_games  = 'data/game_scores.txt'
-path_scores = 'data/player_data.csv'
-path_table  = 'data/player_scores.txt'
-
-# parse input to teams and ranks using wisent ---------------------------------
-def print_tree(tree, terminals, indent=0):
-    """Print a parse tree to stdout, for debugging purposes only."""
-    prefix = "    "*indent
-    if tree[0] in terminals:
-        print prefix + repr(tree)
-    else:
-        print prefix + unicode(tree[0])
-        for x in tree[1:]:
-            print_tree(x, terminals, indent+1)
-
-def tokenize(line):
-    result = []
-    # tokenize elements one by one
-    while line:
-        # Match regular expression for free form tokens (PLAYER)
-        matches = re.match('[^>=,]+', line)
-        if matches:
-            result.append(('PLAYER', matches.group(0).strip()))
-            line = line[matches.end(0):]
-            continue
-
-        # Keep 1-char tokens ">", "=", "," and ":"
-        # parsing will fail later if there are other 1-char tokens
-        result.append((line[0],))
-        line = line[1:]
-
-    return result
-
-def eval_tree(tree):
-    if tree[0] == 'game':
-        return eval_tree(tree[1])
-
-    elif tree[0] == 'leftwins':
-        left = eval_tree(tree[1])
-        right = eval_tree(tree[3])
-        res_teams = left["teams"] + right["teams"]
-        res_ranks = left["ranks"] + [
-            rank + max(left["ranks"]) for rank in right["ranks"]]
-        return {"teams": res_teams, "ranks": res_ranks}
-
-    elif tree[0] == 'draw':
-        left = eval_tree(tree[1])
-        right = eval_tree(tree[3])
-        res_teams = left["teams"] + right["teams"]
-        res_ranks = left["ranks"] + [
-            rank + max(left["ranks"]) - 1 for rank in right["ranks"]]
-        return {"teams": res_teams, "ranks": res_ranks}
-
-    elif tree[0] == 'player_in_team':
-        left = eval_tree(tree[1])
-        right = eval_tree(tree[3])
-        # combine individual players into team
-        res_teams = [left["teams"][0] + right["teams"][0]]
-        res_ranks = left["ranks"]
-        return {"teams": res_teams, "ranks": res_ranks}
-
-    elif tree[0] == 'PLAYER':
-        return {"teams": [[tree[1]]], "ranks": [1]}
-
-def game_line2game_tree(game_line):
-    p = Parser()
-    tokens = tokenize(game_line)
-    return p.parse(tokens)
-
-def prepare_lines(lines):
-    # comments and empty lines don't need parsing
-    # remove unused whitespace
-    keep = []
-    for line in lines:
-        line = line.strip()
-        if len(line) > 0 and line[0] != "#":
-            keep.append(line)
-    return keep
-
-def structure_games(lines):
-    match_groups = [defaultdict(list)]
-    lastwasgame = False
-    for line in lines:
-        keyvalue = line.split(":")
-        if len(keyvalue) == 2:
-            if lastwasgame: # here starts the metadata new group of matches
-                match_groups.append(defaultdict(list))
-            match_groups[len(match_groups) - 1][keyvalue[0].strip()] = (
-                    keyvalue[1].strip())
-            lastwasgame = False
-        else: # not a key value pair but a game
-            game_tree = game_line2game_tree(line)
-            match_groups[len(match_groups) - 1]["_games"].append(game_tree)
-            lastwasgame = True
-    return match_groups
-
-def flatten_structure(match_groups):
-    match_groups = pd.DataFrame(match_groups)
-    games_df = match_groups.apply(
-            lambda x: pd.Series(x['_games']),
-            axis=1).stack().reset_index(level=1, drop=True)
-    games_df.name = "_games"
-    games_df = match_groups.drop('_games', axis=1).join(games_df)
-    return games_df
-
-
-def create_app(df_final, games, dates, metadata):
-    app = dash.Dash()
-
-    app.layout = dhtml.Div([
-        dhtml.Div([
-            html.Div([
-                dcc.Dropdown(
-                    id='game_choice',
-                    options=[{'label': i, 'value': i} for i in games],
-                    value='Choose game'),
-            ], style={'width': '49%', 'display': 'inline-block'}),
-            #html.Div([
-            #    dcc.RangeSlider(
-            #        marks={i: 'Label {}'.format(i) for i in range(-5, 7)},
-            #        min=-5,
-            #        max=6,
-            #        value=[-3, 4]),
-            #], style={'width': '49%', 'float': 'right', 'display': 'inline-block'}),
-        ]),
-        dcc.Graph(id='final_bars'),
-    ])
-
-    return app
-
-#@app.callback(
-#    dash.dependencies.Output('final_bars', 'figure'),
-#    [dash.dependencies.Input('game_choice', 'value')])
-def update_final_bars(game_choice):
-    return {
-        'data': data_df,
-        'layout': go.Layout(
-            xaxis={'type': 'log', 'title': 'GDP Per Capita'},
-            yaxis={'title': 'Life Expectancy', 'range': [20, 90]},
-            margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
-            legend={'x': 0, 'y': 1},
-            hovermode='closest'
-        )
-    }
-
-# vis: colorize influencing factors
-
-def generate_table(dataframe, max_rows=10):
-    return html.Table(
-        # Header
-        [html.Tr([html.Th(col) for col in dataframe.columns])] +
-
-        # Body
-        [html.Tr([
-            html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
-        ]) for i in range(min(len(dataframe), max_rows))]
-    )
+path_games  = 'data/game_scores.yaml'
+path_annotations = 'annotations.csv'
+path_data = 'database.csv'
 
 
 def main():
     with open(path_games, 'r') as fobj:
-        lines = fobj.readlines()
-    lines = prepare_lines(lines)
-    match_groups = structure_games(lines)
-    games_df = flatten_structure(match_groups)
+        try:
+            games_dict = yaml.load(fobj)
+        except yaml.YAMLError as exc:
+            print(exc)
 
-    options_game = games_df.game.unique()
-    options_date = games_df.date.unique()
-    other_metadata = {} # TODO
-    app = create_app(options_game, options_date, other_metadata)
+    # have one developing score per player and game-name
+        # combine all games of each game_name
+        # calculate scores for each game_name separately
+        # calculate scores one game at a time
 
-    # eval games after we know what to show (user input required)
-    app.run_server(port=8089, debug=True)
+    games_df = pd.DataFrame(games_dict)
+    games_df.sort_values('datetime', inplace=True)
+    games_df.reset_index(drop=True, inplace=True)
+    games_flat = games_df.apply(lambda x: pd.Series(x['scores']), axis=1).stack().reset_index(level=1, drop=True)
+    games_flat.name = 'scores'
+    games_df = games_df.drop('scores', axis=1).join(games_flat)
+    # prepare a different time for each game for multiple games
+    games_df.reset_index(drop=True, inplace=True)
+    
+    def spreaddatetimes(datetimes):
+        base = datetimes.values[0]
+        base_next = base.astype('datetime64[D]') + np.timedelta64(1, 'D')
+        delta = (base_next - base) / len(datetimes)
+        deltas = np.array([delta * i for i in range(len(datetimes))])
+        return datetimes + deltas      
+    games_df['datetime'] = games_df.groupby(['game_name', 'datetime'], group_keys=False).datetime.apply(spreaddatetimes)
 
+    games_df[['datetime','game_name', 'annotation']].to_csv(path_annotations, index=False, quoting=QUOTE_ALL)
+    games_df.drop(columns='annotation', inplace=True)
 
+    def signs2ranks(signs):
+        ranks = [1]
+        for idx, sign in enumerate(signs):
+            if sign == "=":
+                ranks.append(ranks[idx])
+            elif sign == ">":
+                ranks.append(ranks[idx] + 1)
+        return ranks
 
+    def calc_metrics(scores):
+        scores_current = defaultdict(trueskill.Rating)
+        scores_history = {"player": [],
+                          "score": [],
+                          "score_sigma": [],
+                          "pos": [],
+                          "has_won": []}
+        index_history = []
 
+        for ids, score in enumerate(scores.values):
+            parent_index = scores.index[ids]
+            score = score.replace(" ", "")
+            teams = re.split("=|>", score)
+            teams_players = [team.split(",") for team in teams]
+            ranks = signs2ranks(re.sub("[^=>]", "", score))
+            teams = list(chain.from_iterable(([part.split(">") for part in game.split(sep='=')])))
+            players_flat = [name for team in teams_players for name in team]
+            ranks_flat = []
+            for idt, team in enumerate(teams_players):
+                for name in team:
+                    ranks_flat.append(ranks[idt])
+            # we want to operate with score objects, not player names
+            for team in teams_players:
+                for idp, name in enumerate(team):
+                    team[idp] = scores_current[name]
+            result = trueskill.rate(teams_players, ranks = ranks)
+            result_flat = [score for team in result for score in team]
+            
+            for idx in range(len(result_flat)):
+                scores_current[players_flat[idx]] = result_flat[idx]
+                scores_history["player"].append(players_flat[idx])
+                scores_history["score"].append(result_flat[idx].mu)
+                scores_history["score_sigma"].append(result_flat[idx].sigma)
+                scores_history["pos"].append(ranks_flat[idx])
+                scores_history["has_won"].append((ranks_flat[idx] == 1) & (max(ranks_flat) > 1))
+                index_history.append(parent_index)
+        
+        return pd.DataFrame(scores_history, index=index_history)
+    metrics_df = games_df.groupby(['game_name', 'datetime'], group_keys=False).scores.apply(calc_metrics).reset_index(level=1, drop=True).reset_index(level=0, drop=True)
+    new_df = games_df.drop('scores', axis=1).join(metrics_df)
+    
+    new_df['score_lower'] = new_df.score - new_df.score_sigma
+    new_df['score_higher'] = new_df.score + new_df.score_sigma
+    new_df['has_lost'] = new_df.pos > 1
 
-
-
-def old_stuff():
-
-    # TODO parse from new data structure
-    games = [parse_game_line(game_line) for game_line in lines]
-
-    # TODO: keep history of player development
-
-    players = defaultdict(trueskill.Rating)
-    players_history = []
-    for game in games:
-        players_flat = [name for team in game["teams"] for name in team]
-
-        # exchange strings with names to corresponding player objects
-        for team in game["teams"]:
-            for idn, name in enumerate(team):
-                team[idn] = players[name]
-
-        # calc new skills
-        result = trueskill.rate(game["teams"], ranks = game["ranks"])
-        result_flat = [player for team in result for player in team]
-
-        # update players with new skill
-        for idx in range(len(result_flat)):
-            players[players_flat[idx]] = result_flat[idx]
-            players_history.append((players_flat[idx], result_flat[idx]))
-
-    # output ------------------------------------------------------------------
-    player_dicts = [{"Name": player,
-                     "mu": players[player].mu,
-                     "sigma": players[player].sigma}
-                    for player in players]
-    player_df = pd.DataFrame(player_dicts)
-
-    # add conservative skill estimation, 99% confidence
-    player_df["TrueSkill"] = (
-        player_df["mu"] - 2.575829303549 * player_df["sigma"])
-    player_df.sort_values("TrueSkill", ascending = False, inplace = True)
-
-    player_df.to_csv(path_scores, index = False)
-    os.system("cat " + path_scores + " | column -s, -t > " + path_table)
-
-
+    new_df.to_csv(path_data, index=False, quoting=QUOTE_ALL)
 
 if __name__ == '__main__':
     main()

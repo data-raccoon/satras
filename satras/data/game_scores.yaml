@@ -1,0 +1,39 @@
+# some metadata precedes the games
+# 1 vs 1
+- datetime: 2017-02-02 22:00:00
+  game_name: my boardgame
+  scores:
+  - Alice > Bob
+  - Bob > Alice
+  - Bob = Alice
+
+# multiple players
+- datetime: 2017-01-01
+  game_name: my cardgame, ffa
+  scores: 
+  - Alice > Bob > Charlie
+  - Alice > Bob = Charlie
+  - Alice = Bob > Charlie
+  - Alice = Bob = Charlie
+
+# Teams
+- datetime: 2017-03-03
+  game_name: my boardgame, ctf
+  scores:
+  - Alice, Bob > Charlie, David
+  - Alice > Bob, Charlie
+
+# write down influencing factors
+- datetime: 2017-04-04 18:00:00
+  game_name: my cardgame
+  annotation: with handicaps
+  scores: 
+  - Alice > Bob, light handicap = Charlie, strong handicap > David
+
+# use custom metadata
+- datetime: 2017-05-05
+  game_name: my boardgame
+  annotation: playing just for fun
+  scores: 
+  - Alice = Bob
+  - Alice > Bob

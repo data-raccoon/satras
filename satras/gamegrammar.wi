@@ -1,8 +1,0 @@
-game: _winorder ;
-
-_winorder: leftwins | draw | _team ;
-leftwins: _team '>' _winorder ;
-draw: _team '=' _winorder ;
-
-_team: PLAYER | player_in_team ;
-player_in_team: PLAYER ',' _team ;
